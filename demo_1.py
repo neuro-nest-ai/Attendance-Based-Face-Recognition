@@ -27,18 +27,17 @@ def process_frames(cap, detection_zone, known_face_encodings, known_face_names):
                 if True in matches:
                     first_match_index = matches.index(True)
                     name = known_face_names[first_match_index]
-                    
-                    # Check if the face is within the detection zone
+                   
                     if left >= detection_zone[0] and right <= detection_zone[1] and \
                        top >= detection_zone[2] and bottom <= detection_zone[3]:
                         print(f"{name} entered the detection zone.")
-                        # Log attendance
+                       
                         log_attendance(name)
                         
                 cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
                 cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                 
-            # Draw the detection zone rectangle (green color)
+          
             cv2.rectangle(frame, (detection_zone[0], detection_zone[2]), 
                           (detection_zone[1], detection_zone[3]), (0, 255, 0), 2)
             
