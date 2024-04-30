@@ -21,45 +21,53 @@ def update_gui(name):
     attendance_label.config(text=f"{name} Present")
 
 # Function to update the camera feed in the GUI
-def update_camera_feed(known_face_encodings, known_face_names):
+def update_camera_feed():
+    global stop_camera
     global attendance_logged
-    _, frame = video_capture.read()
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    frame = cv2.resize(frame, (width, height))
+    global width, height  # Define width and height variables
 
-    # Find face locations and encodings
-    face_locations = face_recognition.face_locations(frame)
-    face_encodings = face_recognition.face_encodings(frame, face_locations)
+    while not stop_camera:
+        ret, frame = video_capture.read()
+        if not ret:
+            print("Failed to retrieve frame from the video capture")
+            continue  # Skip processing if frame retrieval failed
 
-    # Loop through each face
-    for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-        name = "Unknown"
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.resize(frame, (width, height))
 
-        if True in matches and not attendance_logged:
-            name = known_face_names[matches.index(True)]
-            update_gui(name)
+        # Find face locations and encodings
+        face_locations = face_recognition.face_locations(frame)
+        face_encodings = face_recognition.face_encodings(frame, face_locations)
 
-            # Update attendance record
-            log_attendance(name)
-            attendance_logged = True  # Set attendance_logged to True to prevent multiple logging
+        # Loop through each face
+        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+            name = "Unknown"
 
-            # Draw a green rectangle around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        else:
-            # Draw a red rectangle around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
+            if True in matches and not attendance_logged:
+                name = known_face_names[matches.index(True)]
+                update_gui(name)
 
-    # Convert the frame to PIL format
-    img = Image.fromarray(frame)
-    imgtk = ImageTk.PhotoImage(image=img)
+                # Update attendance record
+                log_attendance(name)
+                attendance_logged = True  # Set attendance_logged to True to prevent multiple logging
 
-    # Update the label with the new frame
-    camera_label.imgtk = imgtk
-    camera_label.configure(image=imgtk)
-    if not stop_camera:
-        camera_label.after(10, update_camera_feed, known_face_encodings, known_face_names)  # Update every 10 milliseconds
+                # Draw a green rectangle around the face
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            else:
+                # Draw a red rectangle around the face
+                cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
+
+        # Convert the frame to PIL format
+        img = Image.fromarray(frame)
+        imgtk = ImageTk.PhotoImage(image=img)
+
+        # Update the label with the new frame
+        camera_label.imgtk = imgtk
+        camera_label.configure(image=imgtk)
+
+        root.update()  # Update the GUI
 
 # Function to stop the camera and close the window
 def stop_camera():
@@ -93,15 +101,20 @@ camera_label.pack()
 stop_button = tk.Button(root, text="Stop and Exit", command=stop_camera, font=('Helvetica', 14))
 stop_button.pack(pady=10)
 
-# Initialize video capture
-rtsp_url="rtsp://admin:FPEWBO@192.168.0.101:554/video.cgi?resolution=640x480&req_fps=30&.mjpg"
+# Initialize video capture with RTSP URL and decreased resolution
+rtsp_url = "rtsp://admin:FPEWBO@192.168.0.101:554/stream_path"
 video_capture = cv2.VideoCapture(rtsp_url)
+# Decrease the resolution for faster processing
+video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 120)
+video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 100)
 
 # Get the initial frame dimensions
 width = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Load known face encodings and names
+
+
 known_face_encodings = []
 known_face_names = []
 main_dir = r"D:\NeuroNestAI\Projects2024\Attendance Based Face Recognition\Images"
@@ -122,6 +135,9 @@ stop_camera = False
 # Flag to check if attendance is logged
 attendance_logged = False
 
+# Create and start the camera feed update thread
+camera_thread = threading.Thread(target=update_camera_feed)
+camera_thread.start()
+
 # Main loop
-update_camera_feed(known_face_encodings, known_face_names)
 root.mainloop()
